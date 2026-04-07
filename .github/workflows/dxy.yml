@@ -5,6 +5,9 @@ on:
     - cron: "40 11 * * 1-5"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   run-script:
     runs-on: ubuntu-latest
@@ -28,6 +31,6 @@ jobs:
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
-          git add dados/*.csv dados/*.txt || true
+          git add dados/*.csv || true
           git commit -m "update DXY dataset" || true
           git push
