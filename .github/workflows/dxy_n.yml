@@ -1,4 +1,4 @@
-name: Macro collector 08:40
+name: DXY collector
 
 on:
   schedule:
@@ -24,13 +24,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run macro collector
-        run: python coletor_macro.py
+      - name: Run collector
+        run: python coletor_dxy.py
 
-      - name: Commit dataset update
+      - name: Commit updated CSV
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "actions@github.com"
           git add dados/*.csv || true
-          git commit -m "update macro dataset 08:40" || true
+          git commit -m "update DXY dataset" || true
           git push
