@@ -7,10 +7,13 @@ import os
 import re
 import statistics
 
+
 HEADERS = {
-    "User-Agent": "Mozilla/5.0",
-    "Accept-Language": "pt-BR,pt;q=0.9"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.google.com/"
 }
+
 
 CSV_FILE = "dados/macro_0840.csv"
 
@@ -22,6 +25,10 @@ INDICADORES = {
     "nasdaq": "https://br.investing.com/indices/nq-100-futures"
 }
 
+
+# ===============================
+# Parsing robusto de números
+# ===============================
 
 def limpar_valor(texto):
 
@@ -42,49 +49,115 @@ def limpar_valor(texto):
     return valor
 
 
+# ===============================
+# Seletores resilientes
+# ===============================
+
+def extrair_percentual(soup):
+
+    seletores = [
+        '[data-test="instrument-price-change-percent"]',
+        '.instrument-price_change-percent',
+        '[class*="change-percent"]'
+    ]
+
+    for seletor in seletores:
+
+        campo = soup.select_one(seletor)
+
+        if campo:
+            return limpar_valor(campo.text)
+
+    raise Exception("Mudança no HTML detectada (percentual)")
+
+
+def extrair_valor_absoluto(soup):
+
+    seletores = [
+        '[data-test="instrument-price-last"]',
+        '.instrument-price_last__KQzyA',
+        '[class*="price-last"]'
+    ]
+
+    for seletor in seletores:
+
+        campo = soup.select_one(seletor)
+
+        if campo:
+            return limpar_valor(campo.text)
+
+    raise Exception("Mudança no HTML detectada (valor absoluto)")
+
+
+# ===============================
+# Request resiliente
+# ===============================
+
+def baixar_pagina(url):
+
+    for tentativa in range(3):
+
+        try:
+
+            r = requests.get(url, headers=HEADERS, timeout=15)
+
+            if r.status_code == 200:
+                return BeautifulSoup(r.text, "html.parser")
+
+        except Exception:
+            pass
+
+        time.sleep(2)
+
+    raise Exception(f"Falha download página: {url}")
+
+
+# ===============================
+# Coleta percentual genérica
+# ===============================
+
 def coletar_percentual(url):
 
-    r = requests.get(url, headers=HEADERS, timeout=10)
+    soup = baixar_pagina(url)
 
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    percent = soup.select_one('[data-test="instrument-price-change-percent"]')
-
-    if percent is None:
-        raise Exception("Mudança no HTML detectada")
-
-    return limpar_valor(percent.text)
+    return extrair_percentual(soup)
 
 
-def coletar_valor_absoluto(url):
+# ===============================
+# Coleta valor absoluto genérica
+# ===============================
 
-    r = requests.get(url, headers=HEADERS, timeout=10)
+def coletar_valor(url):
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = baixar_pagina(url)
 
-    valor = soup.select_one('[data-test="instrument-price-last"]')
+    return extrair_valor_absoluto(soup)
 
-    if valor is None:
-        raise Exception("Mudança no HTML detectada")
 
-    return limpar_valor(valor.text)
-
+# ===============================
+# Coleta intraminuto DXY
+# ===============================
 
 def coletar_dxy():
 
     valores = []
 
-    for _ in range(12):
+    print("Coletando DXY (12 amostras)")
+
+    for tentativa in range(12):
 
         inicio = time.time()
 
         try:
+
             valor = coletar_percentual(INDICADORES["dxy"])
+
             valores.append(valor)
 
-            print("DXY:", valor)
+            print(f"DXY {tentativa+1}/12:", valor)
 
         except Exception as e:
+
             print("Erro DXY:", e)
 
         tempo = time.time() - inicio
@@ -92,7 +165,8 @@ def coletar_dxy():
         if tempo < 5:
             time.sleep(5 - tempo)
 
-    if not valores:
+    if len(valores) < 3:
+
         raise Exception("Falha total na coleta DXY")
 
     return {
@@ -103,6 +177,10 @@ def coletar_dxy():
     }
 
 
+# ===============================
+# Evitar duplicidade diária
+# ===============================
+
 def ja_coletado_hoje():
 
     if not os.path.exists(CSV_FILE):
@@ -111,10 +189,15 @@ def ja_coletado_hoje():
     hoje = datetime.datetime.utcnow().strftime("%Y-%m-%d")
 
     with open(CSV_FILE, encoding="utf-8") as f:
+
         return hoje in f.read()
 
 
-def salvar_csv(dados):
+# ===============================
+# Salvar CSV
+# ===============================
+
+def salvar_csv(linha):
 
     os.makedirs("dados", exist_ok=True)
 
@@ -138,18 +221,24 @@ def salvar_csv(dados):
                 "nasdaq"
             ])
 
-        writer.writerow(dados)
+        writer.writerow(linha)
 
+
+# ===============================
+# Execução principal
+# ===============================
 
 def main():
 
     if ja_coletado_hoje():
+
         print("Coleta já realizada hoje")
+
         return
 
     hoje = datetime.datetime.utcnow().strftime("%Y-%m-%d")
 
-    print("Coletando DXY minuto 08:40")
+    print("Iniciando snapshot macro 08:40")
 
     dxy = coletar_dxy()
 
@@ -157,10 +246,10 @@ def main():
     vix = coletar_percentual(INDICADORES["vix"])
 
     print("Coletando US10Y")
-    us10y = coletar_valor_absoluto(INDICADORES["us10y"])
+    us10y = coletar_valor(INDICADORES["us10y"])
 
     print("Coletando Nasdaq Futures")
-    nasdaq = coletar_valor_absoluto(INDICADORES["nasdaq"])
+    nasdaq = coletar_valor(INDICADORES["nasdaq"])
 
     linha = [
         hoje,
@@ -178,6 +267,10 @@ def main():
 
     print("Registro salvo:", linha)
 
+
+# ===============================
+# Entry point
+# ===============================
 
 if __name__ == "__main__":
     main()
