@@ -54,36 +54,31 @@ def validar_valor(valor):
 
 def coletar_valor():
 
-    url = "https://br.investing.com/currencies/us-dollar-index"
+    import statistics
+    import requests
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.google.com/"
-    }
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=15m"
 
-    r = requests.get(url, headers=headers, timeout=15)
+    r = requests.get(url, timeout=10)
 
     if r.status_code != 200:
-        raise Exception(f"Erro HTTP {r.status_code}")
+        raise Exception("Falha acesso Yahoo Finance")
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    data = r.json()
 
-    # novos seletores possíveis (layout atual Investing)
-    seletores = [
-        '[data-test="instrument-price-change-percent"]',
-        '[class*="priceChangePercent"]',
-        '[class*="change-percent"]',
-        'span[class*="percent"]'
-    ]
+    closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
 
-    for seletor in seletores:
-        percent = soup.select_one(seletor)
-        if percent:
-            texto = percent.text.strip()
-            return limpar_valor(texto)
+    closes = [v for v in closes if v is not None]
 
-    raise Exception("Campo DXY não encontrado no HTML")
+    if len(closes) < 3:
+        raise Exception("Dados insuficientes DXY Yahoo")
+
+    primeiro = closes[0]
+    ultimo = closes[-1]
+
+    variacao_pct = ((ultimo - primeiro) / primeiro) * 100
+
+    return round(variacao_pct, 4)
 
 def esperar_segundo_zero():
 
