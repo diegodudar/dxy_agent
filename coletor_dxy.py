@@ -54,25 +54,36 @@ def validar_valor(valor):
 
 def coletar_valor():
 
-    r = requests.get(URL, headers=HEADERS, timeout=10)
+    url = "https://br.investing.com/currencies/us-dollar-index"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.google.com/"
+    }
+
+    r = requests.get(url, headers=headers, timeout=15)
+
+    if r.status_code != 200:
+        raise Exception(f"Erro HTTP {r.status_code}")
 
     soup = BeautifulSoup(r.text, "html.parser")
 
-    percent = soup.select_one('[data-test="instrument-price-change-percent"]')
+    # novos seletores possíveis (layout atual Investing)
+    seletores = [
+        '[data-test="instrument-price-change-percent"]',
+        '[class*="priceChangePercent"]',
+        '[class*="change-percent"]',
+        'span[class*="percent"]'
+    ]
 
-    if percent is None:
-        raise Exception("ALERTA: campo DXY não encontrado no HTML (layout pode ter mudado)")
+    for seletor in seletores:
+        percent = soup.select_one(seletor)
+        if percent:
+            texto = percent.text.strip()
+            return limpar_valor(texto)
 
-    texto = percent.text
-
-    log(f"TEXTO BRUTO CAPTURADO: {texto}")
-
-    valor = limpar_valor(texto)
-
-    validar_valor(valor)
-
-    return valor
-
+    raise Exception("Campo DXY não encontrado no HTML")
 
 def esperar_segundo_zero():
 
