@@ -137,15 +137,17 @@ def coletar_yahoo():
 
 def coletar_valor():
 
-    try:
-        return coletar_investing()
+    for tentativa in range(3):
 
-    except Exception as e:
+        try:
+            return coletar_investing()
+        except Exception as e:
+            print(f"Investing tentativa {tentativa+1} falhou:", e)
+            time.sleep(2)
 
-        print("Investing falhou:", e)
-        print("Fallback → Yahoo Finance")
+    print("Fallback → Yahoo Finance")
 
-        return coletar_yahoo()
+    return coletar_yahoo()
 
 
 # ===============================
