@@ -54,24 +54,60 @@ def validar_valor(valor):
 
 def coletar_valor():
 
-    import statistics
     import requests
+    from bs4 import BeautifulSoup
 
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=15m"
+    url_investing = "https://br.investing.com/currencies/us-dollar-index"
 
-    r = requests.get(url, timeout=10)
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.google.com/"
+    }
 
-    if r.status_code != 200:
-        raise Exception("Falha acesso Yahoo Finance")
+    try:
+
+        r = requests.get(url_investing, headers=headers, timeout=15)
+
+        if r.status_code == 200:
+
+            soup = BeautifulSoup(r.text, "html.parser")
+
+            seletores = [
+                '[data-test="instrument-price-change-percent"]',
+                '[class*="priceChangePercent"]',
+                '[class*="change-percent"]'
+            ]
+
+            for seletor in seletores:
+
+                campo = soup.select_one(seletor)
+
+                if campo:
+
+                    texto = campo.text.strip()
+
+                    return limpar_valor(texto)
+
+        else:
+
+            print("Investing bloqueou (HTTP {})".format(r.status_code))
+
+    except Exception as e:
+
+        print("Falha Investing:", e)
+
+    print("Fallback → Yahoo Finance")
+
+    url_yahoo = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=15m"
+
+    r = requests.get(url_yahoo, timeout=10)
 
     data = r.json()
 
     closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
 
     closes = [v for v in closes if v is not None]
-
-    if len(closes) < 3:
-        raise Exception("Dados insuficientes DXY Yahoo")
 
     primeiro = closes[0]
     ultimo = closes[-1]
