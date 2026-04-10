@@ -37,15 +37,20 @@ def limpar_valor(texto):
 # ===============================
 # ESPERA SINCRONIZADA 08:40:00
 # ===============================
-
 def esperar_inicio_0840():
+
+    import os
+
+    # Se estiver rodando no GitHub Actions, não esperar
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print("Execução no GitHub Actions detectada → pulando sincronização")
+        return
 
     print("Sincronizando com o segundo 00 de 08:40")
 
     while True:
 
         agora = datetime.datetime.utcnow()
-
         hora_brasil = agora - datetime.timedelta(hours=3)
 
         if (
@@ -57,8 +62,6 @@ def esperar_inicio_0840():
             return
 
         time.sleep(0.25)
-
-
 # ===============================
 # FONTE INVESTING
 # ===============================
