@@ -68,35 +68,24 @@ def esperar_inicio_0840():
 
 def coletar_investing():
 
-    url = "https://br.investing.com/currencies/us-dollar-index"
+    url = "https://api.investing.com/api/financialdata/650/summary"
 
     headers = {
         "User-Agent": "Mozilla/5.0",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.google.com/"
+        "Accept": "application/json",
+        "Referer": "https://www.investing.com/"
     }
 
-    r = requests.get(url, headers=headers, timeout=15)
+    r = requests.get(url, headers=headers, timeout=10)
 
     if r.status_code != 200:
-        raise Exception(f"Investing HTTP {r.status_code}")
+        raise Exception(f"Investing API HTTP {r.status_code}")
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    data = r.json()
 
-    seletores = [
-        '[data-test="instrument-price-change-percent"]',
-        '[class*="priceChangePercent"]',
-        '[class*="change-percent"]'
-    ]
+    percent_text = data["data"]["changePercent"]
 
-    for seletor in seletores:
-
-        campo = soup.select_one(seletor)
-
-        if campo:
-            return limpar_valor(campo.text)
-
-    raise Exception("Campo DXY não encontrado no Investing")
+    return limpar_valor(percent_text)
 
 
 # ===============================
