@@ -7,6 +7,7 @@ import csv
 import os
 import re
 
+
 CSV_FILE = "dados/dxy_historico.csv"
 
 
@@ -29,9 +30,13 @@ def limpar_valor(texto):
     return valor
 
 
-def coletar_valor():
+# ==============================
+# FALLBACK 1 — INVESTING
+# ==============================
 
-    url_investing = "https://br.investing.com/currencies/us-dollar-index"
+def coletar_investing():
+
+    url = "https://br.investing.com/currencies/us-dollar-index"
 
     headers = {
         "User-Agent": "Mozilla/5.0",
@@ -39,57 +44,99 @@ def coletar_valor():
         "Referer": "https://www.google.com/"
     }
 
+    r = requests.get(url, headers=headers, timeout=15)
+
+    if r.status_code != 200:
+        raise Exception(f"Investing HTTP {r.status_code}")
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    seletores = [
+        '[data-test="instrument-price-change-percent"]',
+        '[class*="priceChangePercent"]',
+        '[class*="change-percent"]'
+    ]
+
+    for seletor in seletores:
+
+        campo = soup.select_one(seletor)
+
+        if campo:
+            return limpar_valor(campo.text)
+
+    raise Exception("Campo DXY não encontrado no Investing")
+
+
+# ==============================
+# FALLBACK 2 — YAHOO
+# ==============================
+
+def coletar_yahoo():
+
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=15m"
+
+    headers = {
+        "User-Agent": "Mozilla/5.0"
+    }
+
+    for tentativa in range(3):
+
+        try:
+
+            r = requests.get(url, headers=headers, timeout=10)
+
+            if r.status_code != 200:
+                time.sleep(2)
+                continue
+
+            if not r.text.strip():
+                time.sleep(2)
+                continue
+
+            data = r.json()
+
+            closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+
+            closes = [v for v in closes if v is not None]
+
+            if len(closes) < 3:
+                time.sleep(2)
+                continue
+
+            primeiro = closes[0]
+            ultimo = closes[-1]
+
+            variacao_pct = ((ultimo - primeiro) / primeiro) * 100
+
+            return round(variacao_pct, 4)
+
+        except Exception:
+            time.sleep(2)
+
+    raise Exception("Yahoo Finance falhou após retries")
+
+
+# ==============================
+# COLETA PRINCIPAL
+# ==============================
+
+def coletar_valor():
+
     try:
 
-        r = requests.get(url_investing, headers=headers, timeout=15)
-
-        if r.status_code == 200:
-
-            soup = BeautifulSoup(r.text, "html.parser")
-
-            seletores = [
-                '[data-test="instrument-price-change-percent"]',
-                '[class*="priceChangePercent"]',
-                '[class*="change-percent"]'
-            ]
-
-            for seletor in seletores:
-
-                campo = soup.select_one(seletor)
-
-                if campo:
-
-                    texto = campo.text.strip()
-
-                    return limpar_valor(texto)
-
-        else:
-
-            print(f"Investing bloqueou (HTTP {r.status_code})")
+        return coletar_investing()
 
     except Exception as e:
 
-        print("Erro Investing:", e)
+        print("Investing falhou:", e)
+        print("Fallback → Yahoo Finance")
 
-    print("Fallback → Yahoo Finance")
+        return coletar_yahoo()
 
-    url_yahoo = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=15m"
 
-    r = requests.get(url_yahoo, timeout=10)
-
-    data = r.json()
-
-    closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
-
-    closes = [v for v in closes if v is not None]
-
-    primeiro = closes[0]
-    ultimo = closes[-1]
-
-    variacao_pct = ((ultimo - primeiro) / primeiro) * 100
-
-    return round(variacao_pct, 4)
-
+# ==============================
+# COLETA INTRAMINUTO
+# ==============================
 
 def coletar_minuto():
 
@@ -118,8 +165,7 @@ def coletar_minuto():
         if tempo_execucao < 5:
             time.sleep(5 - tempo_execucao)
 
-    if not valores:
-
+    if len(valores) < 3:
         raise Exception("Nenhum valor coletado")
 
     media = round(statistics.mean(valores), 4)
