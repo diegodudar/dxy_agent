@@ -11,6 +11,10 @@ import re
 CSV_FILE = "dados/dxy_historico.csv"
 
 
+# ===============================
+# LIMPAR TEXTO DO PERCENTUAL
+# ===============================
+
 def limpar_valor(texto):
 
     texto = texto.strip().replace("−", "-")
@@ -30,9 +34,9 @@ def limpar_valor(texto):
     return valor
 
 
-# ==============================
-# FALLBACK 1 — INVESTING
-# ==============================
+# ===============================
+# FONTE 1 — INVESTING
+# ===============================
 
 def coletar_investing():
 
@@ -67,63 +71,45 @@ def coletar_investing():
     raise Exception("Campo DXY não encontrado no Investing")
 
 
-# ==============================
-# FALLBACK 2 — YAHOO
-# ==============================
+# ===============================
+# FONTE 2 — YAHOO (fallback)
+# ===============================
 
 def coletar_yahoo():
 
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1m&range=15m"
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=2d"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
-    for tentativa in range(3):
+    r = requests.get(url, headers=headers, timeout=10)
 
-        try:
+    if r.status_code != 200:
+        raise Exception("Yahoo indisponível")
 
-            r = requests.get(url, headers=headers, timeout=10)
+    data = r.json()
 
-            if r.status_code != 200:
-                time.sleep(2)
-                continue
+    closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
 
-            if not r.text.strip():
-                time.sleep(2)
-                continue
+    closes = [v for v in closes if v is not None]
 
-            data = r.json()
+    if len(closes) < 2:
+        raise Exception("Dados insuficientes Yahoo")
 
-            closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
+    ontem = closes[-2]
+    hoje = closes[-1]
 
-            closes = [v for v in closes if v is not None]
+    variacao_pct = ((hoje - ontem) / ontem) * 100
 
-            if len(closes) < 3:
-                time.sleep(2)
-                continue
-
-            primeiro = closes[0]
-            ultimo = closes[-1]
-
-            variacao_pct = ((ultimo - primeiro) / primeiro) * 100
-
-            return round(variacao_pct, 4)
-
-        except Exception:
-            time.sleep(2)
-
-    raise Exception("Yahoo Finance falhou após retries")
+    return round(variacao_pct, 4)
 
 
-# ==============================
+# ===============================
 # COLETA PRINCIPAL
-# ==============================
+# ===============================
 
 def coletar_valor():
 
     try:
-
         return coletar_investing()
 
     except Exception as e:
@@ -134,9 +120,9 @@ def coletar_valor():
         return coletar_yahoo()
 
 
-# ==============================
-# COLETA INTRAMINUTO
-# ==============================
+# ===============================
+# COLETA DO MINUTO 08:40
+# ===============================
 
 def coletar_minuto():
 
