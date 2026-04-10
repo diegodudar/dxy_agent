@@ -35,7 +35,32 @@ def limpar_valor(texto):
 
 
 # ===============================
-# FONTE 1 — INVESTING
+# ESPERA SINCRONIZADA 08:40:00
+# ===============================
+
+def esperar_inicio_0840():
+
+    print("Sincronizando com o segundo 00 de 08:40")
+
+    while True:
+
+        agora = datetime.datetime.utcnow()
+
+        hora_brasil = agora - datetime.timedelta(hours=3)
+
+        if (
+            hora_brasil.hour == 8
+            and hora_brasil.minute == 40
+            and hora_brasil.second == 0
+        ):
+            print("Início da coleta sincronizada 08:40:00")
+            return
+
+        time.sleep(0.25)
+
+
+# ===============================
+# FONTE INVESTING
 # ===============================
 
 def coletar_investing():
@@ -72,7 +97,7 @@ def coletar_investing():
 
 
 # ===============================
-# FONTE 2 — YAHOO (fallback)
+# FALLBACK YAHOO
 # ===============================
 
 def coletar_yahoo():
@@ -121,14 +146,14 @@ def coletar_valor():
 
 
 # ===============================
-# COLETA DO MINUTO 08:40
+# COLETA INTRAMINUTO
 # ===============================
 
 def coletar_minuto():
 
-    valores = []
+    esperar_inicio_0840()
 
-    print("Iniciando coleta do minuto 08:40")
+    valores = []
 
     for i in range(12):
 
