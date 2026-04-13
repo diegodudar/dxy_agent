@@ -84,7 +84,6 @@ def coletar_investing():
     change_percent = data[0]["chp"]
 
     return round(change_percent, 4)
-
 # ===============================
 # FALLBACK YAHOO
 # ===============================
