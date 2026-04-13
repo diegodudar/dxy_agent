@@ -25,6 +25,7 @@ jobs:
         run: pip install requests
 
       - name: Wait until 08:40:00 precisely
+        if: github.event_name == 'schedule'
         run: |
           python - <<EOF
           import datetime, time
@@ -32,7 +33,7 @@ jobs:
           while True:
               now = datetime.datetime.utcnow() - datetime.timedelta(hours=3)
               if now.minute == 40 and now.second == 0:
-                  print("Aligned to 08:40:00")
+                  print("Programado para coletar as 08:40:00")
                   break
               time.sleep(0.2)
           EOF
