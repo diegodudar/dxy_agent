@@ -4,13 +4,59 @@ import time
 import statistics
 import csv
 import os
+import random
+import string
 
 
 CSV_FILE = "dados/dxy_historico.csv"
 
 
 # ===============================
-# SINCRONIZAÇÃO LOCAL 08:40:00
+# GERAR SESSION TOKEN TVC
+# ===============================
+
+def gerar_session():
+
+    letters = string.ascii_lowercase
+    return "qs_" + "".join(random.choice(letters) for _ in range(12))
+
+
+# ===============================
+# COLETA DXY REAL DO INVESTING
+# ===============================
+
+def coletar_valor():
+
+    session = gerar_session()
+
+    url = "https://tvc4.forexpros.com/"
+
+    payload = (
+        f'{{"m":"quote_add_symbols","p":["{session}","indices:USDOLLAR"]}}'
+    )
+
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Content-Type": "text/plain"
+    }
+
+    r = requests.post(url, data=payload, headers=headers, timeout=10)
+
+    if r.status_code != 200:
+        raise Exception("Erro acesso Investing TVC session")
+
+    texto = r.text
+
+    if '"chp":' not in texto:
+        raise Exception("Percentual DXY não encontrado")
+
+    valor = texto.split('"chp":')[1].split(",")[0]
+
+    return round(float(valor), 4)
+
+
+# ===============================
+# SINCRONIZAÇÃO LOCAL 08:40
 # ===============================
 
 def esperar_inicio_0840():
@@ -38,34 +84,7 @@ def esperar_inicio_0840():
 
 
 # ===============================
-# COLETA DXY (FONTE PRIMÁRIA ICE)
-# ===============================
-
-def coletar_valor():
-
-    url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=DX-Y.NYB"
-
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    r = requests.get(url, headers=headers, timeout=10)
-
-    if r.status_code != 200:
-        raise Exception("Erro acesso feed DXY")
-
-    data = r.json()
-
-    result = data["quoteResponse"]["result"]
-
-    if not result:
-        raise Exception("Feed DXY vazio")
-
-    change_percent = result[0]["regularMarketChangePercent"]
-
-    return round(change_percent, 4)
-
-
-# ===============================
-# COLETA INTRAMINUTO 08:40
+# COLETA INTRAMINUTO
 # ===============================
 
 def coletar_minuto():
@@ -118,6 +137,7 @@ def coletar_minuto():
         writer = csv.writer(f)
 
         if not arquivo_existe:
+
             writer.writerow(
                 ["data", "hora", "dxy_mean", "dxy_min", "dxy_max", "dxy_std"]
             )
@@ -126,10 +146,6 @@ def coletar_minuto():
 
     print("Registro salvo:", linha)
 
-
-# ===============================
-# EXECUÇÃO
-# ===============================
 
 if __name__ == "__main__":
     coletar_minuto()
