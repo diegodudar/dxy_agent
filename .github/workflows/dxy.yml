@@ -2,7 +2,7 @@ name: DXY collector
 
 on:
   schedule:
-    - cron: "40 11 * * 1-5"
+    - cron: "39 11 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -23,6 +23,19 @@ jobs:
 
       - name: Install dependencies
         run: pip install requests
+
+      - name: Wait until 08:40:00 precisely
+        run: |
+          python - <<EOF
+          import datetime, time
+
+          while True:
+              now = datetime.datetime.utcnow() - datetime.timedelta(hours=3)
+              if now.minute == 40 and now.second == 0:
+                  print("Aligned to 08:40:00")
+                  break
+              time.sleep(0.2)
+          EOF
 
       - name: Run collector
         run: python coletor_dxy.py
