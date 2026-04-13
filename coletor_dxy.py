@@ -8,25 +8,6 @@ import os
 CSV_FILE = "dados/dxy_historico.csv"
 
 
-def obter_close_atual():
-
-    url = "https://stooq.com/q/l/?s=usdollar&i=1"
-
-    r = requests.get(url, timeout=10)
-
-    if r.status_code != 200:
-        raise Exception("Erro acesso Stooq atual")
-
-    linhas = r.text.strip().split("\n")
-
-    if len(linhas) < 2:
-        raise Exception("Resposta Stooq inválida")
-
-    campos = linhas[1].split(",")
-
-    return float(campos[-1])
-
-
 def obter_close_anterior():
 
     url = "https://stooq.com/q/d/l/?s=usdollar&i=d"
@@ -34,7 +15,7 @@ def obter_close_anterior():
     r = requests.get(url, timeout=10)
 
     if r.status_code != 200:
-        raise Exception("Erro acesso Stooq histórico")
+        raise Exception("Erro acesso histórico Stooq")
 
     linhas = r.text.strip().split("\n")
 
@@ -43,13 +24,32 @@ def obter_close_anterior():
 
     ontem = linhas[-2].split(",")
 
-    return float(ontem[-1])
+    return float(ontem[4])
+
+
+def obter_close_atual():
+
+    url = "https://stooq.com/q/l/?s=usdollar&i=d"
+
+    r = requests.get(url, timeout=10)
+
+    if r.status_code != 200:
+        raise Exception("Erro acesso snapshot Stooq")
+
+    linhas = r.text.strip().split("\n")
+
+    if len(linhas) < 2:
+        raise Exception("Snapshot vazio")
+
+    hoje = linhas[1].split(",")
+
+    return float(hoje[6])
 
 
 def coletar_valor():
 
-    close_atual = obter_close_atual()
     close_anterior = obter_close_anterior()
+    close_atual = obter_close_atual()
 
     variacao = ((close_atual - close_anterior) / close_anterior) * 100
 
