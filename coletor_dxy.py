@@ -65,28 +65,25 @@ def esperar_inicio_0840():
 # ===============================
 # FONTE INVESTING
 # ===============================
-
 def coletar_investing():
 
-    url = "https://api.investing.com/api/financialdata/650/summary"
+    url = "https://tvc4.forexpros.com/1f7d9e2b0e0f4a6b9e0a9d8f5a4b3c2d/1700000000/1/1/8/symbols?symbol=indices:USDOLLAR"
 
     headers = {
         "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json",
-        "Referer": "https://www.investing.com/"
+        "Accept": "application/json"
     }
 
     r = requests.get(url, headers=headers, timeout=10)
 
     if r.status_code != 200:
-        raise Exception(f"Investing API HTTP {r.status_code}")
+        raise Exception(f"Investing TVC HTTP {r.status_code}")
 
     data = r.json()
 
-    percent_text = data["data"]["changePercent"]
+    change_percent = data[0]["chp"]
 
-    return limpar_valor(percent_text)
-
+    return round(change_percent, 4)
 
 # ===============================
 # FALLBACK YAHOO
