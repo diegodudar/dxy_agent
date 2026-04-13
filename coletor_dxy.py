@@ -8,59 +8,32 @@ import os
 CSV_FILE = "dados/dxy_historico.csv"
 
 
-def obter_close_anterior():
+def coletar_valor():
 
-    url = "https://stooq.com/q/d/l/?s=usdollar&i=d"
-
-    r = requests.get(url, timeout=10)
-
-    if r.status_code != 200:
-        raise Exception("Erro acesso histórico Stooq")
-
-    linhas = r.text.strip().split("\n")
-
-    if len(linhas) < 3:
-        raise Exception("Histórico insuficiente Stooq")
-
-    ontem = linhas[-2].split(",")
-
-    if len(ontem) < 5:
-        raise Exception("Formato histórico inesperado")
-
-    return float(ontem[4])
-
-
-def obter_close_atual():
-
-    url = "https://stooq.com/q/l/?s=usdollar&i=d"
+    url = "https://stooq.com/q/l/?s=usdollar&f=sd2t2ohlcv&h&e=csv"
 
     r = requests.get(url, timeout=10)
 
     if r.status_code != 200:
-        raise Exception("Erro snapshot Stooq")
+        raise Exception("Erro acesso Stooq CSV")
 
     linhas = r.text.strip().split("\n")
 
     if len(linhas) < 2:
-        raise Exception("Snapshot vazio")
+        raise Exception("Resposta CSV vazia")
 
-    hoje = linhas[1].split(",")
+    campos = linhas[1].split(",")
 
-    # última coluna sempre é Close
-    close_atual = hoje[-1]
+    # layout esperado:
+    # Symbol,Date,Time,Open,High,Low,Close,Volume
 
-    if close_atual == "" or close_atual == "N/D":
-        raise Exception("Close atual indisponível")
+    if len(campos) < 7:
+        raise Exception("Formato CSV inesperado")
 
-    return float(close_atual)
+    open_price = float(campos[3])
+    close_price = float(campos[6])
 
-
-def coletar_valor():
-
-    close_anterior = obter_close_anterior()
-    close_atual = obter_close_atual()
-
-    variacao = ((close_atual - close_anterior) / close_anterior) * 100
+    variacao = ((close_price - open_price) / open_price) * 100
 
     return round(variacao, 4)
 
@@ -78,7 +51,6 @@ def coletar_minuto():
         try:
 
             valor = coletar_valor()
-
             valores.append(valor)
 
             print(f"Coleta {i+1}/12:", valor)
