@@ -1,4 +1,4 @@
-import requests
+import requestsimport requests
 import datetime
 import time
 import statistics
@@ -20,9 +20,12 @@ def obter_close_anterior():
     linhas = r.text.strip().split("\n")
 
     if len(linhas) < 3:
-        raise Exception("Histórico insuficiente")
+        raise Exception("Histórico insuficiente Stooq")
 
     ontem = linhas[-2].split(",")
+
+    if len(ontem) < 5:
+        raise Exception("Formato histórico inesperado")
 
     return float(ontem[4])
 
@@ -34,7 +37,7 @@ def obter_close_atual():
     r = requests.get(url, timeout=10)
 
     if r.status_code != 200:
-        raise Exception("Erro acesso snapshot Stooq")
+        raise Exception("Erro snapshot Stooq")
 
     linhas = r.text.strip().split("\n")
 
@@ -43,7 +46,13 @@ def obter_close_atual():
 
     hoje = linhas[1].split(",")
 
-    return float(hoje[6])
+    # última coluna sempre é Close
+    close_atual = hoje[-1]
+
+    if close_atual == "" or close_atual == "N/D":
+        raise Exception("Close atual indisponível")
+
+    return float(close_atual)
 
 
 def coletar_valor():
