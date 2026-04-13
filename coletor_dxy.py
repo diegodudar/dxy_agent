@@ -4,28 +4,56 @@ import time
 import statistics
 import csv
 import os
-import re
 
 CSV_FILE = "dados/dxy_historico.csv"
 
 
-def coletar_valor():
+def obter_close_atual():
 
-    url = "https://stooq.com/q/l/?s=usdollar&i=d"
+    url = "https://stooq.com/q/l/?s=usdollar&i=1"
 
     r = requests.get(url, timeout=10)
 
     if r.status_code != 200:
-        raise Exception("Erro acesso Stooq")
+        raise Exception("Erro acesso Stooq atual")
 
-    texto = r.text.strip()
+    linhas = r.text.strip().split("\n")
 
-    match = re.search(r"([-+]?\d+\.\d+)%", texto)
+    if len(linhas) < 2:
+        raise Exception("Resposta Stooq inválida")
 
-    if not match:
-        raise Exception("Percentual DXY não encontrado")
+    campos = linhas[1].split(",")
 
-    return float(match.group(1))
+    return float(campos[-1])
+
+
+def obter_close_anterior():
+
+    url = "https://stooq.com/q/d/l/?s=usdollar&i=d"
+
+    r = requests.get(url, timeout=10)
+
+    if r.status_code != 200:
+        raise Exception("Erro acesso Stooq histórico")
+
+    linhas = r.text.strip().split("\n")
+
+    if len(linhas) < 3:
+        raise Exception("Histórico insuficiente")
+
+    ontem = linhas[-2].split(",")
+
+    return float(ontem[-1])
+
+
+def coletar_valor():
+
+    close_atual = obter_close_atual()
+    close_anterior = obter_close_anterior()
+
+    variacao = ((close_atual - close_anterior) / close_anterior) * 100
+
+    return round(variacao, 4)
 
 
 def coletar_minuto():
@@ -76,7 +104,6 @@ def coletar_minuto():
         writer = csv.writer(f)
 
         if not arquivo_existe:
-
             writer.writerow(
                 ["data", "hora", "dxy_mean", "dxy_min", "dxy_max", "dxy_std"]
             )
