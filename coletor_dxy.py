@@ -10,7 +10,7 @@ CSV_FILE = "dados/dxy_historico.csv"
 
 
 # ===============================
-# SINCRONIZAÇÃO 08:40:00 (LOCAL)
+# SINCRONIZAÇÃO LOCAL 08:40:00
 # ===============================
 
 def esperar_inicio_0840():
@@ -19,52 +19,49 @@ def esperar_inicio_0840():
         print("Execução no GitHub Actions detectada → pulando sincronização")
         return
 
-    print("Sincronizando com o segundo 00 de 08:40")
+    print("Sincronizando com 08:40:00")
 
     while True:
 
         agora = datetime.datetime.utcnow()
-        hora_brasil = agora - datetime.timedelta(hours=3)
+        hora_br = agora - datetime.timedelta(hours=3)
 
         if (
-            hora_brasil.hour == 8
-            and hora_brasil.minute == 40
-            and hora_brasil.second == 0
+            hora_br.hour == 8
+            and hora_br.minute == 40
+            and hora_br.second == 0
         ):
-            print("Início da coleta sincronizada 08:40:00")
+            print("Coleta iniciada em 08:40:00")
             return
 
         time.sleep(0.25)
 
 
 # ===============================
-# COLETA DXY VIA INVESTING (TVC)
+# COLETA DXY (FONTE PRIMÁRIA ICE)
 # ===============================
 
 def coletar_valor():
 
-    url = (
-        "https://tvc4.forexpros.com/"
-        "1f7d9e2b0e0f4a6b9e0a9d8f5a4b3c2d/"
-        "1700000000/1/1/8/symbols?symbol=indices:USDOLLAR"
-    )
+    url = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=DX-Y.NYB"
 
-    headers = {
-        "User-Agent": "Mozilla/5.0",
-        "Accept": "application/json"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
 
     r = requests.get(url, headers=headers, timeout=10)
 
     if r.status_code != 200:
-        raise Exception(f"Erro Investing TVC HTTP {r.status_code}")
+        raise Exception("Erro acesso feed DXY")
 
     data = r.json()
 
-    if not data or "chp" not in data[0]:
-        raise Exception("Campo changePercent não encontrado")
+    result = data["quoteResponse"]["result"]
 
-    return round(data[0]["chp"], 4)
+    if not result:
+        raise Exception("Feed DXY vazio")
+
+    change_percent = result[0]["regularMarketChangePercent"]
+
+    return round(change_percent, 4)
 
 
 # ===============================
@@ -121,7 +118,6 @@ def coletar_minuto():
         writer = csv.writer(f)
 
         if not arquivo_existe:
-
             writer.writerow(
                 ["data", "hora", "dxy_mean", "dxy_min", "dxy_max", "dxy_std"]
             )
