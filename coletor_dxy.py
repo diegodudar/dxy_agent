@@ -1,47 +1,20 @@
 import requests
-from bs4 import BeautifulSoup
 import datetime
 import time
 import statistics
 import csv
 import os
-import re
 
 
 CSV_FILE = "dados/dxy_historico.csv"
 
 
 # ===============================
-# LIMPAR TEXTO DO PERCENTUAL
+# SINCRONIZAÇÃO 08:40:00 (LOCAL)
 # ===============================
 
-def limpar_valor(texto):
-
-    texto = texto.strip().replace("−", "-")
-
-    negativo = "-" in texto
-
-    numero = re.search(r"\d+[.,]?\d*", texto)
-
-    if not numero:
-        raise ValueError(f"Falha parsing: {texto}")
-
-    valor = float(numero.group(0).replace(",", "."))
-
-    if negativo:
-        valor = -valor
-
-    return valor
-
-
-# ===============================
-# ESPERA SINCRONIZADA 08:40:00
-# ===============================
 def esperar_inicio_0840():
 
-    import os
-
-    # Se estiver rodando no GitHub Actions, não esperar
     if os.getenv("GITHUB_ACTIONS") == "true":
         print("Execução no GitHub Actions detectada → pulando sincronização")
         return
@@ -62,12 +35,19 @@ def esperar_inicio_0840():
             return
 
         time.sleep(0.25)
-# ===============================
-# FONTE INVESTING
-# ===============================
-def coletar_investing():
 
-    url = "https://tvc4.forexpros.com/1f7d9e2b0e0f4a6b9e0a9d8f5a4b3c2d/1700000000/1/1/8/symbols?symbol=indices:USDOLLAR"
+
+# ===============================
+# COLETA DXY VIA INVESTING (TVC)
+# ===============================
+
+def coletar_valor():
+
+    url = (
+        "https://tvc4.forexpros.com/"
+        "1f7d9e2b0e0f4a6b9e0a9d8f5a4b3c2d/"
+        "1700000000/1/1/8/symbols?symbol=indices:USDOLLAR"
+    )
 
     headers = {
         "User-Agent": "Mozilla/5.0",
@@ -77,66 +57,18 @@ def coletar_investing():
     r = requests.get(url, headers=headers, timeout=10)
 
     if r.status_code != 200:
-        raise Exception(f"Investing TVC HTTP {r.status_code}")
+        raise Exception(f"Erro Investing TVC HTTP {r.status_code}")
 
     data = r.json()
 
-    change_percent = data[0]["chp"]
+    if not data or "chp" not in data[0]:
+        raise Exception("Campo changePercent não encontrado")
 
-    return round(change_percent, 4)
-# ===============================
-# FALLBACK YAHOO
-# ===============================
-
-def coletar_yahoo():
-
-    url = "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB?interval=1d&range=2d"
-
-    headers = {"User-Agent": "Mozilla/5.0"}
-
-    r = requests.get(url, headers=headers, timeout=10)
-
-    if r.status_code != 200:
-        raise Exception("Yahoo indisponível")
-
-    data = r.json()
-
-    closes = data["chart"]["result"][0]["indicators"]["quote"][0]["close"]
-
-    closes = [v for v in closes if v is not None]
-
-    if len(closes) < 2:
-        raise Exception("Dados insuficientes Yahoo")
-
-    ontem = closes[-2]
-    hoje = closes[-1]
-
-    variacao_pct = ((hoje - ontem) / ontem) * 100
-
-    return round(variacao_pct, 4)
+    return round(data[0]["chp"], 4)
 
 
 # ===============================
-# COLETA PRINCIPAL
-# ===============================
-
-def coletar_valor():
-
-    for tentativa in range(3):
-
-        try:
-            return coletar_investing()
-        except Exception as e:
-            print(f"Investing tentativa {tentativa+1} falhou:", e)
-            time.sleep(2)
-
-    print("Fallback → Yahoo Finance")
-
-    return coletar_yahoo()
-
-
-# ===============================
-# COLETA INTRAMINUTO
+# COLETA INTRAMINUTO 08:40
 # ===============================
 
 def coletar_minuto():
@@ -144,6 +76,8 @@ def coletar_minuto():
     esperar_inicio_0840()
 
     valores = []
+
+    print("Iniciando coleta do minuto 08:40")
 
     for i in range(12):
 
@@ -196,6 +130,10 @@ def coletar_minuto():
 
     print("Registro salvo:", linha)
 
+
+# ===============================
+# EXECUÇÃO
+# ===============================
 
 if __name__ == "__main__":
     coletar_minuto()
